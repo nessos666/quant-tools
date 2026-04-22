@@ -51,3 +51,4 @@ def test_roundtrip_simulate_and_estimate():
     # MLE hat bekannten downward bias beim mean_rev_speed – 30% Toleranz realistisch
     assert abs(result.mean_rev_speed - 3.0) / 3.0 < 0.30
     assert abs(result.mean_rev_level - 200.0) / 200.0 < 0.05
+    assert abs(result.vola - 2.0) / 2.0 < 0.15

@@ -24,10 +24,7 @@ def path(
     v = params.vola
 
     exp_adt = np.exp(-a * dt)
-    if a > 1e-10:
-        trans_std = v * np.sqrt((1 - np.exp(-2 * a * dt)) / (2 * a))
-    else:
-        trans_std = v * np.sqrt(dt)
+    trans_std = v * np.sqrt((1 - np.exp(-2 * a * dt)) / (2 * a))
 
     x = np.empty(n_steps)
     x[0] = x0
@@ -59,9 +56,8 @@ def noise_from_path(
     exp_adt = np.exp(-a * dt)
     expected = x[:-1] * exp_adt + mu * (1 - exp_adt)
 
-    if a > 1e-10:
-        trans_std = v * np.sqrt((1 - np.exp(-2 * a * dt)) / (2 * a))
-    else:
-        trans_std = v * np.sqrt(dt)
+    trans_std = v * np.sqrt((1 - np.exp(-2 * a * dt)) / (2 * a))
+    if trans_std < 1e-20:
+        raise ValueError(f'trans_std ≈ 0: vola={params.vola:.6g}, a={a:.6g}, dt={dt:.6g}')
 
     return (x[1:] - expected) / trans_std
