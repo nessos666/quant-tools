@@ -12,6 +12,7 @@ dependencies = [
     "pandas>=2.0",
     "pydantic>=2.0",
     "loguru>=0.7",
+    "statsmodels>=0.14",
 ]
 
 [tool.pytest.ini_options]
