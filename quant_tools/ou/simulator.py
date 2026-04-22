@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import norm
 from quant_tools.core.types import FitResult
 
 
@@ -61,3 +62,27 @@ def noise_from_path(
         raise ValueError(f'trans_std ≈ 0: vola={params.vola:.6g}, a={a:.6g}, dt={dt:.6g}')
 
     return (x[1:] - expected) / trans_std
+
+
+def transition_pdf(x0: float, x1: float, dt: float, params: FitResult) -> float:
+    a = params.mean_rev_speed
+    mu = params.mean_rev_level
+    v = params.vola
+
+    exp_adt = np.exp(-a * dt)
+    cond_mean = x0 * exp_adt + mu * (1 - exp_adt)
+    cond_std = v * np.sqrt((1 - np.exp(-2 * a * dt)) / (2 * a))
+
+    return float(norm.pdf(x1, loc=cond_mean, scale=cond_std))
+
+
+def transition_logpdf(x0: float, x1: float, dt: float, params: FitResult) -> float:
+    a = params.mean_rev_speed
+    mu = params.mean_rev_level
+    v = params.vola
+
+    exp_adt = np.exp(-a * dt)
+    cond_mean = x0 * exp_adt + mu * (1 - exp_adt)
+    cond_std = v * np.sqrt((1 - np.exp(-2 * a * dt)) / (2 * a))
+
+    return float(norm.logpdf(x1, loc=cond_mean, scale=cond_std))

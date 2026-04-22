@@ -1,5 +1,10 @@
 import numpy as np
-from quant_tools.ou.simulator import path, noise_from_path
+from quant_tools.ou.simulator import (
+    noise_from_path,
+    path,
+    transition_logpdf,
+    transition_pdf,
+)
 from quant_tools.ou.estimator import mle_analytical
 from quant_tools.core.types import FitResult
 
@@ -52,3 +57,37 @@ def test_roundtrip_simulate_and_estimate():
     assert abs(result.mean_rev_speed - 3.0) / 3.0 < 0.30
     assert abs(result.mean_rev_level - 200.0) / 200.0 < 0.05
     assert abs(result.vola - 2.0) / 2.0 < 0.15
+
+
+def test_transition_pdf_integrates_to_one():
+    params = _make_params(a=2.0, mu=50.0, v=1.0)
+    x_grid = np.linspace(40, 60, 10000)
+    pdf_vals = np.array([transition_pdf(50.0, xi, 1 / 252, params) for xi in x_grid])
+    dx = x_grid[1] - x_grid[0]
+    integral = np.sum(pdf_vals) * dx
+    assert abs(integral - 1.0) < 0.01
+
+
+def test_transition_logpdf_consistent_with_pdf():
+    params = _make_params(a=3.0, mu=100.0, v=2.0)
+    pdf_val = transition_pdf(100.0, 101.0, 1 / 252, params)
+    logpdf_val = transition_logpdf(100.0, 101.0, 1 / 252, params)
+    assert abs(np.log(pdf_val) - logpdf_val) < 1e-10
+
+
+def test_transition_pdf_peaks_at_conditional_mean():
+    params = _make_params(a=5.0, mu=100.0, v=1.0)
+    x0 = 110.0
+    dt = 1 / 252
+    exp_adt = np.exp(-5.0 * dt)
+    cond_mean = x0 * exp_adt + 100.0 * (1 - exp_adt)
+
+    pdf_at_mean = transition_pdf(x0, cond_mean, dt, params)
+    pdf_away = transition_pdf(x0, cond_mean + 1.0, dt, params)
+    assert pdf_at_mean > pdf_away
+
+
+def test_transition_logpdf_returns_float():
+    params = _make_params(a=2.0, mu=50.0, v=1.0)
+    val = transition_logpdf(50.0, 50.1, 1 / 252, params)
+    assert isinstance(val, float)
