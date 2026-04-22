@@ -51,3 +51,88 @@ def test_mle_analytical_half_life_in_result():
 def test_mle_analytical_min_length():
     with pytest.raises(ValueError, match="mindestens"):
         mle_analytical(np.array([1.0, 2.0]), dt=1.0)
+
+
+def test_mle_analytical_min_length_boundary():
+    """3 Werte → n=2 < 3 muss ebenfalls ValueError auslösen."""
+    with pytest.raises(ValueError, match="mindestens"):
+        mle_analytical(np.array([1.0, 2.0, 3.0]), dt=1.0)
+
+
+def test_mle_analytical_explosive_ar1_raises():
+    """AR(1) mit phi=1.05 (explosiv) → OLS schätzt phi > 1 → ValueError."""
+    rng = np.random.default_rng(7)
+    x = np.zeros(500)
+    x[0] = 0.0
+    for i in range(1, 500):
+        x[i] = 1.05 * x[i - 1] + rng.normal(0, 0.01)
+    with pytest.raises(ValueError, match="phi="):
+        mle_analytical(x, dt=1.0 / 252)
+
+
+def test_mle_analytical_negatively_autocorrelated_raises():
+    """Alternierend ±1 → phi < 0 → ValueError."""
+    x = np.array([float((-1) ** i) for i in range(200)])
+    with pytest.raises(ValueError, match="phi="):
+        mle_analytical(x, dt=1.0)
+
+
+def test_bias_correct_reduces_bias():
+    """Bias-korrigierter θ soll näher am wahren Wert liegen."""
+    from quant_tools.ou.estimator import bias_correct
+    rng = np.random.default_rng(42)
+    a_true = 2.0
+    dt = 1.0 / 252
+    n = 500
+
+    x = np.zeros(n)
+    x[0] = 50.0
+    exp_adt = np.exp(-a_true * dt)
+    std = np.sqrt((1 - np.exp(-2 * a_true * dt)) / (2 * a_true))
+    for i in range(1, n):
+        x[i] = x[i - 1] * exp_adt + 50.0 * (1 - exp_adt) + rng.normal(0, std)
+
+    raw = mle_analytical(x, dt)
+    corrected = bias_correct(raw, dt)
+
+    raw_err = abs(raw.mean_rev_speed - a_true)
+    cor_err = abs(corrected.mean_rev_speed - a_true)
+    assert cor_err <= raw_err * 1.1
+
+
+def test_bias_correct_preserves_other_fields():
+    """Bias-Korrektur ändert nur mean_rev_speed und half_life."""
+    from quant_tools.ou.estimator import bias_correct
+    rng = np.random.default_rng(0)
+    x = np.cumsum(rng.normal(0, 1, 200)) + 100.0
+    raw = mle_analytical(x, dt=1.0)
+    corrected = bias_correct(raw, dt=1.0)
+
+    assert corrected.mean_rev_level == raw.mean_rev_level
+    assert corrected.vola == raw.vola
+    assert corrected.loglik == raw.loglik
+    assert corrected.n_obs == raw.n_obs
+    expected_hl = np.log(2) / corrected.mean_rev_speed
+    assert abs(corrected.half_life - expected_hl) < 1e-10
+
+
+def test_bias_correct_large_n_minimal_effect():
+    """Bei großem n (5000) soll die Korrektur fast nichts ändern."""
+    from quant_tools.ou.estimator import bias_correct
+    rng = np.random.default_rng(7)
+    a_true = 3.0
+    dt = 1.0 / 252
+    n = 5000
+
+    x = np.zeros(n)
+    x[0] = 100.0
+    exp_adt = np.exp(-a_true * dt)
+    std = np.sqrt((1 - np.exp(-2 * a_true * dt)) / (2 * a_true))
+    for i in range(1, n):
+        x[i] = x[i - 1] * exp_adt + 100.0 * (1 - exp_adt) + rng.normal(0, std)
+
+    raw = mle_analytical(x, dt)
+    corrected = bias_correct(raw, dt)
+
+    rel_diff = abs(corrected.mean_rev_speed - raw.mean_rev_speed) / raw.mean_rev_speed
+    assert rel_diff < 0.05

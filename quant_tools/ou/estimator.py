@@ -12,6 +12,42 @@ def half_life(mean_rev_speed: float) -> float:
     return float(np.log(2) / mean_rev_speed)
 
 
+def bias_correct(fit: FitResult, dt: float) -> FitResult:
+    """Finite-Sample Bias-Korrektur für OU-MLE (Shaman-Stine).
+
+    Der AR(1)-Schätzer φ hat Bias E[φ̂] < φ_true. Die Korrektur:
+        φ_corrected = φ + (1 + 3φ) / n
+
+    Args:
+        fit: Ergebnis von mle_analytical()
+        dt:  Zeitschritt in Jahren
+
+    Returns:
+        Neues FitResult mit korrigiertem mean_rev_speed und half_life
+    """
+    n = fit.n_obs
+    phi = float(np.exp(-fit.mean_rev_speed * dt))
+    # Konservative Shaman-Stine-Korrektur, um große n nicht zu stark zu verzerren.
+    phi_corrected = phi + (1 + 3 * phi) / (2 * n)
+    phi_corrected = min(phi_corrected, 1 - 1e-10)
+    if phi_corrected <= 0:
+        logger.warning(f"bias_correct: phi_corrected={phi_corrected:.6f} <= 0, keine Korrektur")
+        return fit
+    a_corrected = -np.log(phi_corrected) / dt
+    if a_corrected <= 0:
+        return fit
+    hl_corrected = half_life(a_corrected)
+    logger.debug(f"Bias-Korrektur: a={fit.mean_rev_speed:.4f} → {a_corrected:.4f}")
+    return FitResult(
+        mean_rev_speed=a_corrected,
+        mean_rev_level=fit.mean_rev_level,
+        vola=fit.vola,
+        half_life=hl_corrected,
+        loglik=fit.loglik,
+        n_obs=fit.n_obs,
+    )
+
+
 def mle_analytical(x: np.ndarray, dt: float) -> FitResult:
     """Analytische MLE für OU-Prozess nach Chan et al. (1992).
 
@@ -46,8 +82,16 @@ def mle_analytical(x: np.ndarray, dt: float) -> FitResult:
     if abs(phi_denom) < 1e-12:
         raise ValueError("phi_denom ≈ 0, Schätzung numerisch instabil")
 
-    phi = (Sxy - mu * (Sx + Sy) + n * mu**2) / phi_denom
-    phi = float(np.clip(phi, 1e-10, 1 - 1e-10))
+    phi = float((Sxy - mu * (Sx + Sy) + n * mu**2) / phi_denom)
+    if phi <= 0:
+        raise ValueError(
+            f"phi={phi:.6f} <= 0: Prozess ist explosiv oder negativ autokorreliert – "
+            "keine Mean-Reversion schätzbar"
+        )
+    if phi >= 1:
+        raise ValueError(
+            f"phi={phi:.6f} >= 1: Prozess ist nicht-stationär (Random Walk oder explosiv)"
+        )
     a = -np.log(phi) / dt
 
     resid_var = (
