@@ -48,6 +48,28 @@ def bias_correct(fit: FitResult, dt: float) -> FitResult:
     )
 
 
+def est_vola_qv(x: np.ndarray, dt: float) -> float:
+    """Volatilität aus realisierter quadratischer Variation schätzen.
+
+    Modell-frei: braucht weder Drift noch Mean-Reversion-Speed.
+    Formel: v = sqrt(QV / T) wobei QV = sum(dx²), T = n·dt.
+
+    Args:
+        x:  1D numpy array (Zeitreihe)
+        dt: Zeitschritt in Jahren
+
+    Returns:
+        Geschätzte Volatilität v > 0
+    """
+    x = np.asarray(x, dtype=float)
+    if len(x) < 2:
+        raise ValueError(f"x braucht mindestens 2 Werte, got {len(x)}")
+    dx = np.diff(x)
+    qv = float(np.sum(dx * dx))
+    T = len(dx) * dt
+    return float(np.sqrt(qv / T))
+
+
 def mle_analytical(x: np.ndarray, dt: float) -> FitResult:
     """Analytische MLE für OU-Prozess nach Chan et al. (1992).
 

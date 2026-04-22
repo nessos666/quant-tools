@@ -136,3 +136,33 @@ def test_bias_correct_large_n_minimal_effect():
 
     rel_diff = abs(corrected.mean_rev_speed - raw.mean_rev_speed) / raw.mean_rev_speed
     assert rel_diff < 0.05
+
+
+def test_est_vola_qv_recovers_vola():
+    """QV-Schätzer soll wahre Volatilität auf 20% genau treffen."""
+    from quant_tools.ou.estimator import est_vola_qv
+    from quant_tools.ou.simulator import path
+    from quant_tools.core.types import FitResult
+
+    params = FitResult(
+        mean_rev_speed=2.0, mean_rev_level=50.0, vola=1.0,
+        half_life=np.log(2) / 2.0, loglik=0.0, n_obs=1,
+    )
+    x = path(x0=50.0, n_steps=5000, dt=1 / 252, params=params, seed=42)
+    v_est = est_vola_qv(x, dt=1 / 252)
+    assert abs(v_est - 1.0) / 1.0 < 0.20
+
+
+def test_est_vola_qv_positive():
+    """QV-Schätzer muss immer positiv sein."""
+    from quant_tools.ou.estimator import est_vola_qv
+    x = np.array([1.0, 1.001, 0.999, 1.002, 0.998])
+    v = est_vola_qv(x, dt=1.0)
+    assert v > 0
+
+
+def test_est_vola_qv_min_length():
+    """Zu kurze Zeitreihe → ValueError."""
+    from quant_tools.ou.estimator import est_vola_qv
+    with pytest.raises(ValueError, match="mindestens"):
+        est_vola_qv(np.array([1.0]), dt=1.0)
