@@ -105,4 +105,4 @@ class RollingOU:
             except (ValueError, RuntimeError):
                 pass
         index = x.index if isinstance(x, pd.Series) else None
-        return pd.DataFrame(result, columns=cols, index=index)
+        return pd.DataFrame(result, columns=pd.Index(cols), index=index)
