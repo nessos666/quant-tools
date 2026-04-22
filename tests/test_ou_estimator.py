@@ -166,3 +166,24 @@ def test_est_vola_qv_min_length():
     from quant_tools.ou.estimator import est_vola_qv
     with pytest.raises(ValueError, match="mindestens"):
         est_vola_qv(np.array([1.0]), dt=1.0)
+
+
+def test_optimal_dt_basic():
+    """optimal_dt(2.0) = 0.7968 / 2.0 = 0.3984."""
+    from quant_tools.ou.estimator import optimal_dt
+    result = optimal_dt(2.0)
+    assert abs(result - 0.3984) < 1e-4
+
+
+def test_optimal_dt_fast_reversion():
+    """Schnelle Mean-Reversion → kleines dt optimal."""
+    from quant_tools.ou.estimator import optimal_dt
+    result = optimal_dt(100.0)
+    assert result < 0.01
+
+
+def test_optimal_dt_zero_raises():
+    """θ=0 → ValueError."""
+    from quant_tools.ou.estimator import optimal_dt
+    with pytest.raises(ValueError):
+        optimal_dt(0.0)

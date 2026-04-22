@@ -70,6 +70,26 @@ def est_vola_qv(x: np.ndarray, dt: float) -> float:
     return float(np.sqrt(qv / T))
 
 
+def optimal_dt(mean_rev_speed: float) -> float:
+    """Optimaler Sampling-Intervall für OU-Schätzung.
+
+    dt_optimal = 0.7968 / θ (Nyquist-Analog für OU-Prozesse).
+    Schnelleres Abtasten verschwendet Daten (hohe Autokorrelation),
+    langsameres verliert Information.
+
+    Quelle: Phys Rev E, 2020.
+
+    Args:
+        mean_rev_speed: θ > 0
+
+    Returns:
+        Optimaler Zeitschritt in denselben Einheiten wie θ
+    """
+    if mean_rev_speed <= 0:
+        raise ValueError(f"mean_rev_speed muss > 0 sein, got {mean_rev_speed}")
+    return 0.7968 / mean_rev_speed
+
+
 def mle_analytical(x: np.ndarray, dt: float) -> FitResult:
     """Analytische MLE für OU-Prozess nach Chan et al. (1992).
 
