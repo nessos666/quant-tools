@@ -4,7 +4,7 @@
     <strong>Statistical tooling for quantitative finance — Ornstein-Uhlenbeck processes, volatility estimation, and core types.</strong>
   </p>
   <p align="center">
-    <a href="#quick-start">Quick Start</a> · <a href="#ornstein-uhlenbeck">OU Module</a> · <a href="#validated-against">Validation</a>
+    <a href="#why">Why</a> · <a href="#math-behind-it">The Math</a> · <a href="#quick-start">Quick Start</a> · <a href="#ornstein-uhlenbeck">OU Module</a> · <a href="#validated-against">Validation</a>
   </p>
 </p>
 
@@ -13,6 +13,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
   <img src="https://img.shields.io/badge/dependencies-numpy+scipy+pandas-orange" alt="Minimal deps">
   <img src="https://img.shields.io/badge/tests-6_suites_pass-brightgreen" alt="Tests passing">
+  <img src="https://img.shields.io/github/stars/nessos666/quant-tools?style=social" alt="Stars">
 </p>
 
 ---
@@ -28,6 +29,63 @@ Currently focused on:
 - **Ornstein-Uhlenbeck processes** — MLE fitting, simulation, stationarity tests, bias correction
 - **Volatility estimation** — quadratic variation, realized volatility, efficient estimators
 - **Core types** — Pydantic models for `FitResult`, `SimParams`, `VolaResult` with serialization
+
+---
+
+## The Math Behind It
+
+### What is an Ornstein-Uhlenbeck Process?
+
+The OU process is the continuous-time equivalent of an AR(1) model. It's the standard model for **mean-reverting behavior** in finance:
+
+```
+dX(t) = θ(μ - X(t))dt + σ dW(t)
+```
+
+| Symbol | Meaning | Intuition |
+|--------|---------|-----------|
+| **θ** (theta) | Mean reversion speed | Higher = faster pull toward mean |
+| **μ** (mu) | Long-term mean level | Price oscillates around this value |
+| **σ** (sigma) | Volatility | Random component magnitude |
+| **dW(t)** | Wiener process | Random noise (Brownian motion) |
+
+**Key insight:** When price X(t) is above μ, the drift term θ(μ − X(t)) becomes negative — pulling price back down. Below μ, it pulls up. The strength of this pull is proportional to distance from the mean.
+
+### Half-Life
+
+The half-life tells you how many days (or bars) it takes for a deviation from the mean to decay by 50%:
+
+```
+τ = ln(2) / θ
+```
+
+| θ | Half-Life | Interpretation |
+|---|-----------|---------------|
+| 10 | ~17 hours (1/252yr) | Fast mean reversion — scalp-friendly |
+| 1 | ~6 months (0.69yr) | Slow mean reversion — swing trading |
+| 0.05 | ~14 years | Essentially a random walk |
+
+### Why MLE and Not OLS?
+
+Ordinary Least Squares (AR(1) regression) gives biased estimates in small samples. The bias is:
+
+```
+E[θ̂] ≈ θ − (1 + 3θ) / N
+```
+
+Where N is your sample size. For N=250 (1 year of daily data), this bias can be 10-20%. The `bias_correct()` function applies the **Shaman-Stine (1988)** correction to fix it.
+
+### Transition Density
+
+The OU process has a known closed-form transition density (exact, not Euler). This means:
+
+- **Simulation** uses the exact distribution, not an approximation
+- **MLE fitting** uses the exact likelihood, not a noisy proxy
+- **Confidence intervals** are analytically computable
+
+```
+X(t+dt) | X(t) ~ Normal( μ + (X(t) - μ)e^{-θdt}, σ²(1 - e^{-2θdt}) / 2θ )
+```
 
 ---
 
@@ -159,7 +217,7 @@ tests/
 pytest tests/ -v
 ```
 
-All 6 test suites pass. The integration test validates against the Wergieluk reference implementation (included under `examples/ou_noise`).
+All 6 test suites pass. The integration test validates against the Wergieluk reference implementation.
 
 ---
 
@@ -167,8 +225,17 @@ All 6 test suites pass. The integration test validates against the Wergieluk ref
 
 1. **Correctness first** — every estimator cross-validated against academic reference implementations
 2. **Clean interfaces** — typed, documented, Pydantic-backed models
-3. **No black boxes** — open math, clear references
+3. **No black boxes** — open math, clear references. You can verify every formula.
 4. **Minimal dependencies** — numpy, scipy, pandas, pydantic, loguru. No ML bloat.
+
+---
+
+## Related
+
+Part of the NQ research ecosystem:
+
+- [nq-strategy-builder](https://github.com/nessos666/nq-strategy-builder) — Full backtesting framework using these tools
+- [ou_noise](https://github.com/wergieluk/ou_noise) — Reference implementation used for validation
 
 ---
 
@@ -177,6 +244,6 @@ All 6 test suites pass. The integration test validates against the Wergieluk ref
 MIT — use it, validate it, improve it.
 
 <p align="center">
-  <small>Built for systematic NQ futures research.<br>
+  <small>Built for systematic NQ futures research. Correct math, clean APIs, verified results.<br>
   <strong>github.com/nessos666</strong></small>
 </p>
