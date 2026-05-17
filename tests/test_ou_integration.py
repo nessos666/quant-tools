@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 # Wergieluk als optionale Referenz laden (falls verfügbar)
-WERGIELUK_PATH = "/home/boobi/HAUPTLAGER/02_Research_Papers/wergieluk_julian/ou_noise"
+WERGIELUK_PATH = str(Path(__file__).resolve().parent.parent / "examples" / "ou_noise")
 HAS_WERGIELUK = False
 try:
     if os.path.isdir(WERGIELUK_PATH):
